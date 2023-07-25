@@ -1,18 +1,21 @@
 {% extends "base.html" %}
- {% load static %}
-{% block "content" %}
 
-     <h1>Knygų sąrašas</h1>
+ {% load static %}
+
+{% block "content" %}
+<h1>Knygų sąrašas</h1>
+
   {% if book_list %}
   <ul>
-    {% for book in book_list %}
+      {% for book in book_list %}
 
       <li>
 
         <a href="{{ book.id }}">{{ book.title }}</a> ({{book.author}})
       </li>
       {% if book.cover %}
-                <img src="{{ book.cover.url }}" class="card-img-top" alt="...">
+
+<img src="{{ book.cover.url }}" class="card-img-top" alt="...">
 
             {% else %}
               <img src="{% static 'img/no-image.png' %}" class="card-img-top">

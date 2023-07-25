@@ -1,7 +1,9 @@
 import uuid
-
+from django.contrib.auth.models import User
+from datetime import date
 from django.db import models
 from django.urls import reverse
+from django.utils.translation import gettext_lazy as _
 
 
 # Create your models here.
@@ -17,13 +19,18 @@ class Genre(models.Model):
 
 class Book(models.Model):
     """Modelis reprezentuoja knygą (bet ne specifinę knygos kopiją)"""
-    cover = models.ImageField('Viršelis', upload_to='covers', null=True, blank=True)
-    title = models.CharField('Pavadinimas', max_length=200)
+    title = models.CharField(_('Title'), max_length=200)
     author = models.ForeignKey('Author', on_delete=models.SET_NULL, null=True, related_name='books')
-    summary = models.TextField('Aprašymas', max_length=1000, help_text='Trumpas knygos aprašymas')
+    summary = models.TextField(_('Summary'), max_length=1000, help_text=_('Shot book summary'))
     isbn = models.CharField('ISBN', max_length=13,
                             help_text='13 Simbolių <a href="https://www.isbn-international.org/content/what-isbn">ISBN kodas</a>')
-    genre = models.ManyToManyField(Genre, help_text='Išrinkite žanrą(us) šiai knygai')
+    genre = models.ManyToManyField(Genre, help_text=_('Please choose genres'))
+    # genre = models.ForeignKey('Žanras', Genre)
+    cover = models.ImageField(_('Cover'), upload_to='covers', null=True)
+
+    def display_genre(self):
+        return ', '.join(genre.name for genre in self.genre.all()[:3])
+    display_genre.short_description = 'Žanras'
 
     def __str__(self):
         return self.title
@@ -32,16 +39,13 @@ class Book(models.Model):
         """Nurodo konkretaus aprašymo galinį adresą"""
         return reverse('book-detail', args=[str(self.id)])
 
-    def display_genre(self):
-        return ', '.join(genre.name for genre in self.genre.all()[:3])
-
-    display_genre.short_description = 'Žanras'
 
 class BookInstance(models.Model):
     """Modelis, aprašantis konkrečios knygos kopijos būseną"""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, help_text='Unikalus ID knygos kopijai')
     book = models.ForeignKey('Book', on_delete=models.SET_NULL, null=True)
     due_back = models.DateField('Bus prieinama', null=True, blank=True)
+    reader = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
 
     LOAN_STATUS = (
         ('a', 'Administruojama'),
@@ -64,11 +68,16 @@ class BookInstance(models.Model):
     def __str__(self):
         return f'{self.id} ({self.book.title})'
 
+    def is_overdue(self):
+        if self.due_back and date.today() > self.due_back:
+            return True
+        return False
+
 class Author(models.Model):
     """Model representing an author."""
     first_name = models.CharField('Vardas', max_length=100)
     last_name = models.CharField('Pavardė', max_length=100)
-    description = models.TextField('Aprašymas', max_length=2000, default='')
+    description = models.TextField()
     class Meta:
         ordering = ['last_name', 'first_name']
 
@@ -84,3 +93,15 @@ class Author(models.Model):
         return ', '.join(book.title for book in self.books.all()[:3])
 
     display_books.short_description = 'Knygos'
+
+
+class BookReview(models.Model):
+    book = models.ForeignKey('Book', on_delete=models.SET_NULL, null=True, blank=True)
+    reviewer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    date_created = models.DateTimeField(auto_now_add=True)
+    content = models.TextField('Atsiliepimas', max_length=2000)
+
+    class Meta:
+        verbose_name = "Atsiliepimas"
+        verbose_name_plural = 'Atsiliepimai'
+        ordering = ['-date_created']
